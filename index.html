@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monthly Requirements Submission Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    const { useState, useMemo, useRef, useCallback, useEffect } = React;
+
+    const BRAND = { blue: "#007cba", orange: "#ff6900", yellow: "#fcb900", dark: "#161012" };
+
+    const Icon = ({ d, size = 16, stroke = 2, className = "", style }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round"
+        className={className} style={style} dangerouslySetInnerHTML={{__html: d}} />
+    );
+    const I = {
+      Check: (p) => <Icon {...p} d='<polyline points="20 6 9 17 4 12"/>' />,
+      CheckCircle: (p) => <Icon {...p} d='<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>' />,
+      Circle: (p) => <Icon {...p} d='<circle cx="12" cy="12" r="10"/>' />,
+      Alert: (p) => <Icon {...p} d='<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' />,
+      Upload: (p) => <Icon {...p} d='<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>' />,
+      X: (p) => <Icon {...p} d='<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' />,
+      File: (p) => <Icon {...p} d='<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' />,
+      Bar: (p) => <Icon {...p} d='<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>' />,
+      Award: (p) => <Icon {...p} d='<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>' />,
+      Shield: (p) => <Icon {...p} d='<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>' />,
+      Send: (p) => <Icon {...p} d='<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>' />,
+      Loader: (p) => <Icon {...p} d='<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>' />,
+      Chevron: (p) => <Icon {...p} d='<polyline points="6 9 12 15 18 9"/>' />,
+      Info: (p) => <Icon {...p} d='<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>' />,
+      Image: (p) => <Icon {...p} d='<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' />,
+      Briefcase: (p) => <Icon {...p} d='<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>' />,
+    };
+
+    const formatCurrency = (val) => {
+      if (val === "" || val === null || val === undefined || isNaN(Number(val))) return "";
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(val));
+    };
+    const parseNumeric = (str) => typeof str !== "string" ? str : str.replace(/[^0-9.-]/g, "");
+    const formatNumberWithCommas = (val) => {
+      if (val === "" || val === null || val === undefined) return "";
+      const str = String(val);
+      const [intPart, decPart] = str.split(".");
+      if (intPart === "" || intPart === "-") return str;
+      const num = Number(intPart);
+      if (isNaN(num)) return str;
+      const formattedInt = num.toLocaleString("en-US");
+      return str.includes(".") ? `${formattedInt}.${decPart ?? ""}` : formattedInt;
+    };
+    const formatIntWithCommas = (val) => {
+      if (val === "" || val === null || val === undefined) return "";
+      const cleaned = String(val).replace(/[^0-9-]/g, "");
+      if (cleaned === "" || cleaned === "-") return cleaned;
+      const num = Number(cleaned);
+      return isNaN(num) ? cleaned : num.toLocaleString("en-US");
+    };
+
+    function SectionCard({ icon: IconComp, title, subtitle, status, children, required, accent, id }) {
+      const cfg = {
+        complete: { label: "Complete", className: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+        incomplete: { label: "Incomplete", className: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" },
+      }[status] || { label: "Optional", className: "bg-slate-50 text-slate-600 border-slate-200", dot: "bg-slate-400" };
+
+      return (
+        <section id={id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md scroll-mt-32">
+          <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-slate-100">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${accent || BRAND.blue}15` }}>
+                <IconComp size={20} style={{ color: accent || BRAND.blue }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+                  {required && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">Required</span>}
+                </div>
+                {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+              </div>
+            </div>
+            {status && (
+              <div className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${cfg.className}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {cfg.label}
+              </div>
+            )}
+          </div>
+          <div className="p-6">{children}</div>
+        </section>
+      );
+    }
+
+    function Label({ children, htmlFor, required }) {
+      return (
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700 mb-1.5">
+          {children}{required && <span className="text-rose-500 ml-0.5">*</span>}
+        </label>
+      );
+    }
+
+    function TextInput({ id, value, onChange, placeholder, type = "text", prefix, ...rest }) {
+      return (
+        <div className="relative">
+          {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">{prefix}</span>}
+          <input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+            className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-all focus:outline-none focus:ring-2 ${prefix ? "pl-7" : ""} border-slate-300 focus:ring-[#007cba]/20 focus:border-[#007cba]`}
+            {...rest} />
+        </div>
+      );
+    }
+
+    function Textarea({ id, value, onChange, placeholder, rows = 3 }) {
+      return (
+        <textarea id={id} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+          className="w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-all focus:outline-none focus:ring-2 resize-none border-slate-300 focus:ring-[#007cba]/20 focus:border-[#007cba]" />
+      );
+    }
+
+    function Select({ id, value, onChange, options, placeholder = "Select..." }) {
+      return (
+        <div className="relative">
+          <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-9 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#007cba]/20 focus:border-[#007cba]">
+            <option value="">{placeholder}</option>
+            {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <I.Chevron size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+      );
+    }
+
+    function YesNoToggle({ value, onChange }) {
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { v: "Yes", active: "bg-emerald-50 border-emerald-300 text-emerald-700" },
+            { v: "No", active: "bg-rose-50 border-rose-300 text-rose-700" },
+          ].map((opt) => {
+            const active = value === opt.v;
+            return (
+              <button key={opt.v} type="button" onClick={() => onChange(opt.v)}
+                className={`py-2.5 rounded-lg text-sm font-semibold border transition-all ${active ? opt.active : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                {opt.v}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function Checkbox({ id, checked, onChange, label, description }) {
+      return (
+        <label htmlFor={id} className={`flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-all select-none ${checked ? "border-[#007cba]/40 bg-[#007cba]/5" : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"}`}>
+          <div className="relative flex-shrink-0 mt-0.5">
+            <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only" />
+            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${checked ? "border-[#007cba] bg-[#007cba]" : "border-slate-300 bg-white"}`}>
+              {checked && <I.Check size={14} stroke={3} className="text-white" />}
+            </div>
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium text-slate-800">{label}</div>
+            {description && <div className="text-xs text-slate-500 mt-0.5">{description}</div>}
+          </div>
+        </label>
+      );
+    }
+
+    function ImageUploader({ photos, onChange, accent = BRAND.orange, minRequired = 1, helpText }) {
+      const inputRef = useRef(null);
+      const [dragOver, setDragOver] = useState(false);
+      const handleFiles = useCallback((files) => {
+        const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+        const newImages = imageFiles.map((f) => ({
+          id: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+          name: f.name, size: f.size, url: URL.createObjectURL(f),
+        }));
+        onChange([...photos, ...newImages]);
+      }, [photos, onChange]);
+      const onDrop = (e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files); };
+      const remove = (id) => {
+        const target = photos.find((p) => p.id === id);
+        if (target?.url) URL.revokeObjectURL(target.url);
+        onChange(photos.filter((p) => p.id !== id));
+      };
+      return (
+        <>
+          <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop} onClick={() => inputRef.current?.click()}
+            className={`rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${dragOver ? "bg-orange-50" : "border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400"}`}
+            style={dragOver ? { borderColor: accent } : undefined}>
+            <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handleFiles(e.target.files)} />
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accent}20` }}>
+                <I.Upload size={20} style={{ color: accent }} />
+              </div>
+              <div className="text-sm font-medium text-slate-700">
+                Drop images here, or <span className="underline" style={{ color: BRAND.blue }}>browse files</span>
+              </div>
+              <div className="text-xs text-slate-500">{helpText || `PNG, JPG, GIF, or HEIC • At least ${minRequired} required`}</div>
+            </div>
+          </div>
+          {photos.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {photos.map((p) => (
+                <div key={p.id} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                  <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <button type="button" onClick={(e) => { e.stopPropagation(); remove(p.id); }}
+                    className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-slate-700 hover:bg-white hover:text-rose-600 shadow-sm opacity-0 group-hover:opacity-100 transition-all">
+                    <I.X size={14} />
+                  </button>
+                  <div className="absolute bottom-0 left-0 right-0 px-2 py-1 text-[10px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">{p.name}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-3 text-xs">
+            <span className="flex items-center gap-1.5 text-slate-500">
+              <I.Image size={14} />
+              {photos.length} {photos.length === 1 ? "file" : "files"} uploaded
+            </span>
+            {photos.length < minRequired && <span className="text-amber-600 font-medium">At least {minRequired} required</span>}
+          </div>
+        </>
+      );
+    }
+
+    function Header({ completedSections, totalSections, percentage, sections }) {
+      return (
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-20 backdrop-blur-sm bg-white/95">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: BRAND.blue }}>
+                  <I.Briefcase size={24} className="text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">Monthly Requirements Submission Portal</h1>
+                  <p className="text-sm text-slate-500 mt-0.5">Complete all required items before submission</p>
+                </div>
+              </div>
+              <div className="flex-1 lg:max-w-md">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Overall Progress</span>
+                  <span className="text-xs font-medium text-slate-500">{completedSections} of {totalSections} sections complete</span>
+                </div>
+                <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${percentage}%`, background: `linear-gradient(90deg, ${BRAND.blue} 0%, ${BRAND.orange} 100%)` }} />
+                </div>
+                <div className="flex justify-end mt-1">
+                  <span className="text-xs font-semibold" style={{ color: BRAND.blue }}>{percentage}%</span>
+                </div>
+              </div>
+            </div>
+
+            {sections && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Submission Summary</span>
+                  <span className="text-xs text-slate-500">Live status of each section</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {sections.map((s) => (
+                    <div key={s.key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${s.complete ? "bg-emerald-50/60 border-emerald-200" : "bg-amber-50/40 border-amber-200"}`}>
+                      {s.complete ? <I.CheckCircle size={16} className="flex-shrink-0 text-emerald-500" /> : <I.Alert size={16} className="flex-shrink-0 text-amber-500" />}
+                      <span className={`text-xs flex-1 truncate ${s.complete ? "text-emerald-900 font-medium" : "text-amber-900 font-medium"}`}>{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </header>
+      );
+    }
+
+    function SubmissionDetailsCard({ data, update, status }) {
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const cy = new Date().getFullYear();
+      const years = [cy - 1, cy, cy + 1].map(String);
+      const roles = ["CA Popper", "Non-CA Popper", "VS", "Litigation Attorney"];
+      return (
+        <SectionCard id="details" icon={I.File} title="Submission Details" subtitle="Identify the reporting period and submitter" status={status} required accent={BRAND.blue}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <Label htmlFor="month" required>Reporting Month</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select id="month" value={data.month} onChange={(v) => update("month", v)} options={months} placeholder="Month" />
+                <Select value={data.year} onChange={(v) => update("year", v)} options={years} placeholder="Year" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="role" required>Role</Label>
+              <Select id="role" value={data.role} onChange={(v) => update("role", v)} options={roles} placeholder="Select a role" />
+              {data.role === "Litigation Attorney" && (
+                <p className="text-xs mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 text-blue-800 border border-blue-200 w-fit">
+                  <I.Info size={12} />Simplified Litigation flow — only fees, cases & bonus required
+                </p>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="attorneyName" required>Full Name</Label>
+              <TextInput id="attorneyName" value={data.name} onChange={(v) => update("name", v)} placeholder="e.g., Jane Doe" />
+            </div>
+          </div>
+        </SectionCard>
+      );
+    }
+
+    function MetricsCard({ data, update, status, isLitigation, spreadsheetScreenshots, onSpreadsheetChange }) {
+      const attorneyFees = parseFloat(data.attorneyFees) || 0;
+      const numCases = parseFloat(data.numCases) || 0;
+      const autoAvg = numCases > 0 ? (attorneyFees / numCases).toFixed(2) : "";
+      useEffect(() => {
+        if (autoAvg && !data.avgAttorneyFeesEdited) update("avgAttorneyFees", autoAvg);
+      }, [autoAvg]);
+
+      if (isLitigation) {
+        return (
+          <SectionCard id="metrics" icon={I.Bar} title="Monthly Metrics" subtitle="Enter Last Month's Numbers" status={status} required accent={BRAND.blue}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <Label htmlFor="attorneyFees" required>Total Attorney Fees Generated</Label>
+                <TextInput id="attorneyFees" value={formatNumberWithCommas(data.attorneyFees)} onChange={(v) => update("attorneyFees", parseNumeric(v))} placeholder="0.00" prefix="$" inputMode="decimal" />
+                {data.attorneyFees && <p className="text-xs text-slate-500 mt-1">{formatCurrency(data.attorneyFees)}</p>}
+              </div>
+              <div>
+                <Label htmlFor="numCases" required>Number of Cases</Label>
+                <TextInput id="numCases" value={formatIntWithCommas(data.numCases)} onChange={(v) => update("numCases", parseNumeric(v))} placeholder="0" inputMode="numeric" />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="bonusEarned" required>Bonus Amount Earned (if eligible)</Label>
+                <TextInput id="bonusEarned" value={formatNumberWithCommas(data.bonusEarned)} onChange={(v) => update("bonusEarned", parseNumeric(v))} placeholder="0.00" prefix="$" inputMode="decimal" />
+                {data.bonusEarned && <p className="text-xs text-slate-500 mt-1">{formatCurrency(data.bonusEarned)}</p>}
+              </div>
+              <div className="md:col-span-2 border-t border-slate-100 pt-5">
+                <Label required>Upload Spreadsheet Screenshot</Label>
+                <ImageUploader photos={spreadsheetScreenshots} onChange={onSpreadsheetChange} accent={BRAND.orange} minRequired={1} helpText="Upload a screenshot of your monthly tracking spreadsheet" />
+              </div>
+            </div>
+          </SectionCard>
+        );
+      }
+
+      return (
+        <SectionCard id="metrics" icon={I.Bar} title="Monthly Metrics" subtitle="Enter Last Month's Numbers" status={status} required accent={BRAND.blue}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <Label htmlFor="attorneyFees" required>Total Attorney Fees Generated</Label>
+              <TextInput id="attorneyFees" value={formatNumberWithCommas(data.attorneyFees)} onChange={(v) => update("attorneyFees", parseNumeric(v))} placeholder="0.00" prefix="$" inputMode="decimal" />
+              {data.attorneyFees && <p className="text-xs text-slate-500 mt-1">{formatCurrency(data.attorneyFees)}</p>}
+            </div>
+            <div>
+              <Label htmlFor="numCases" required>Number of Cases (excluding MedPay)</Label>
+              <TextInput id="numCases" value={formatIntWithCommas(data.numCases)} onChange={(v) => update("numCases", parseNumeric(v))} placeholder="0" inputMode="numeric" />
+            </div>
+            <div>
+              <Label htmlFor="avgAttorneyFees" required>Average Attorney Fees</Label>
+              <div className="flex gap-2">
+                <TextInput id="avgAttorneyFees" value={formatNumberWithCommas(data.avgAttorneyFees)}
+                  onChange={(v) => { update("avgAttorneyFees", parseNumeric(v)); update("avgAttorneyFeesEdited", true); }}
+                  placeholder="0.00" prefix="$" inputMode="decimal" />
+                {autoAvg && data.avgAttorneyFees !== autoAvg && (
+                  <button type="button" onClick={() => { update("avgAttorneyFees", autoAvg); update("avgAttorneyFeesEdited", false); }}
+                    className="text-xs font-medium px-3 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors">
+                    Auto: ${formatNumberWithCommas(autoAvg)}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1"><I.Info size={12} />Auto-calculated from fees ÷ cases. Editable.</p>
+            </div>
+            <div>
+              <Label htmlFor="numDemandsOut" required>Number of Demands Out Last Month</Label>
+              <TextInput id="numDemandsOut" value={formatIntWithCommas(data.numDemandsOut)} onChange={(v) => update("numDemandsOut", parseNumeric(v))} placeholder="0" inputMode="numeric" />
+            </div>
+            <div>
+              <Label htmlFor="demandsRemaining" required>Number of Pending Demands</Label>
+              <TextInput id="demandsRemaining" value={formatIntWithCommas(data.demandsRemaining)} onChange={(v) => update("demandsRemaining", parseNumeric(v))} placeholder="0" inputMode="numeric" />
+              <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50/60 p-3 text-xs text-blue-900 leading-relaxed">
+                <div className="mb-1.5">Demands that are still pending.</div>
+                <div className="font-semibold mb-1">How to check:</div>
+                <ol className="list-decimal list-inside space-y-1 ml-1">
+                  <li>Open: <a href="https://dayanhouman.lightning.force.com/lightning/r/Report/00O4z000006YbpoEAC/view?queryScope=userFolders" target="_blank" rel="noopener noreferrer" className="underline font-medium break-all">Salesforce report</a></li>
+                  <li>Count them → that's your total</li>
+                </ol>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="bonusEarned" required>Bonus Amount Earned (if eligible)</Label>
+              <TextInput id="bonusEarned" value={formatNumberWithCommas(data.bonusEarned)} onChange={(v) => update("bonusEarned", parseNumeric(v))} placeholder="0.00" prefix="$" inputMode="decimal" />
+              {data.bonusEarned && <p className="text-xs text-slate-500 mt-1">{formatCurrency(data.bonusEarned)}</p>}
+            </div>
+          </div>
+        </SectionCard>
+      );
+    }
+
+    function BonusRequirementsCard({ data, update, status, isVS }) {
+      const demandsOptions = ["All Demands Out", "At least 25 Demands Out", "VS Only - At least 12 Demands Out", "Demands Met (With Exception)", "Not Met"];
+      const exceptionReasons = [
+        "Unable to Reach Client Despite Multiple Attempts",
+        "Pending Substantial Documents from Client or Team",
+        "Demand Assigned on the Last Day of the Month",
+        "Other",
+      ];
+      const solExceptions = ["3P case already settled (client has signed Release)", "UIM case", "Minor's 3P case", "Referred-Out case — transfer fully completed", "Pre-Approved by Partners / Pre-Lit Supervisor / Litigation Chair", "Other"];
+      return (
+        <SectionCard id="bonus" icon={I.Award} title="Bonus Requirements" subtitle="Confirm each bonus eligibility criterion" status={status} required accent={BRAND.orange}>
+          <div className="space-y-5">
+            <div>
+              <Label required>Upload Spreadsheet Screenshot</Label>
+              <ImageUploader photos={data.spreadsheetScreenshots} onChange={(v) => update("spreadsheetScreenshots", v)} accent={BRAND.orange} minRequired={1} helpText="Upload a screenshot of your monthly tracking spreadsheet" />
+            </div>
+            <div className="border-t border-slate-100 pt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <Label required>Did you meet the monthly requirements?</Label>
+                <YesNoToggle value={data.metBonus} onChange={(v) => update("metBonus", v)} />
+                {data.metBonus === "No" && (
+                  <div className="mt-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                    <Label htmlFor="metBonusExplain" required>Explanation</Label>
+                    <Textarea id="metBonusExplain" value={data.metBonusExplanation} onChange={(v) => update("metBonusExplanation", v)} placeholder="Please explain why monthly requirements were not met..." rows={3} />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="demandsStatus" required>Demands Out Status</Label>
+                <Select id="demandsStatus" value={data.demandsStatus} onChange={(v) => update("demandsStatus", v)} options={demandsOptions} placeholder="Select status" />
+                {data.demandsStatus === "Not Met" && (
+                  <div className="mt-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                    <Label htmlFor="demandsNotMetExplain" required>Explanation</Label>
+                    <Textarea id="demandsNotMetExplain" value={data.demandsNotMetExplanation} onChange={(v) => update("demandsNotMetExplanation", v)} placeholder="Please explain why the Demands Out requirement was not met..." rows={3} />
+                  </div>
+                )}
+                {data.demandsStatus === "Demands Met (With Exception)" && (
+                  <div className="mt-3 space-y-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                    <div>
+                      <Label htmlFor="exceptionReason" required>Exception Reason</Label>
+                      <Select id="exceptionReason" value={data.exceptionReason} onChange={(v) => update("exceptionReason", v)} options={exceptionReasons} placeholder="Select reason" />
+                    </div>
+                    {data.exceptionReason === "Other" && (
+                      <div style={{ animation: "slideUp 0.2s ease-out" }}>
+                        <Label htmlFor="exceptionReasonOther" required>Specify Other Reason</Label>
+                        <TextInput id="exceptionReasonOther" value={data.exceptionReasonOther} onChange={(v) => update("exceptionReasonOther", v)} placeholder="Enter the exception reason..." />
+                      </div>
+                    )}
+                    <div>
+                      <Label htmlFor="exceptionNote" required>Note</Label>
+                      <Textarea id="exceptionNote" value={data.exceptionNote} onChange={(v) => update("exceptionNote", v)} placeholder="Provide additional context for this exception..." rows={3} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <Label required>Imminent SOL Cases?</Label>
+                <YesNoToggle value={data.noSol} onChange={(v) => update("noSol", v)} />
+                {data.noSol === "Yes" && (
+                  <div className="mt-3 space-y-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3.5 text-xs text-amber-900 leading-relaxed">
+                      <div className="font-semibold mb-1.5 flex items-center gap-1.5"><I.Info size={14} />Exceptions to the SOL Rule</div>
+                      <div className="space-y-1.5">
+                        <div><span className="font-semibold">SOL Inapplicable:</span> 3P cases already settled (client signed Release), UIM cases, Minor's 3P cases</div>
+                        <div><span className="font-semibold">Referred-Out:</span> transfer must be fully completed</div>
+                        <div><span className="font-semibold">Pre-Approved:</span> approved by Partners, Pre-Lit Supervisor, or Litigation Chair — with a specific game plan, Litigation looped in (if applicable), and action items up-to-date</div>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="solException" required>SOL Exception Applied</Label>
+                      <Select id="solException" value={data.solException} onChange={(v) => update("solException", v)} options={solExceptions} placeholder="Select exception" />
+                    </div>
+                    <div>
+                      <Label htmlFor="solExplain" required>Explanation</Label>
+                      <Textarea id="solExplain" value={data.solExplanation} onChange={(v) => update("solExplanation", v)} placeholder="Describe the imminent SOL case(s), mitigation, and confirm pre-approval / game plan where applicable..." rows={3} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!isVS && (
+                <div className="md:col-span-2">
+                  <Label required>Case Manager Review Requirement Met?</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { v: "Yes", active: "bg-emerald-50 border-emerald-300 text-emerald-700" },
+                      { v: "No", active: "bg-rose-50 border-rose-300 text-rose-700" },
+                      { v: "Not due this month", active: "bg-slate-100 border-slate-300 text-slate-700" },
+                    ].map((opt) => {
+                      const active = data.cmReviewMet === opt.v;
+                      return (
+                        <button key={opt.v} type="button" onClick={() => update("cmReviewMet", opt.v)}
+                          className={`py-2.5 px-2 rounded-lg text-xs sm:text-sm font-semibold border transition-all leading-tight ${active ? opt.active : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                          {opt.v}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {data.cmReviewMet === "No" && (
+                    <div className="mt-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                      <Label htmlFor="cmReviewExplain" required>Explanation</Label>
+                      <Textarea id="cmReviewExplain" value={data.cmReviewExplanation} onChange={(v) => update("cmReviewExplanation", v)} placeholder="Please explain why the Case Manager Review requirement was not met..." rows={3} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {!isVS && (
+              <div className="border-t border-slate-100 pt-5">
+                <Label htmlFor="caseReviewStatement" required>Case Review Confirmation Statement</Label>
+                <Textarea id="caseReviewStatement" value={data.caseReviewStatement} onChange={(v) => update("caseReviewStatement", v)} placeholder="Provide a brief confirmation statement about your case reviews this period..." rows={3} />
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      );
+    }
+
+    function CaseOfMonthCard({ data, update, status }) {
+      return (
+        <SectionCard id="com" icon={I.Award} title="Case of the Month" subtitle="Highlight a standout case from this reporting period" status={status} required accent={BRAND.orange}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <Label htmlFor="clientName" required>Client Name</Label>
+              <TextInput id="clientName" value={data.clientName} onChange={(v) => update("clientName", v)} placeholder="e.g., Jane Smith" />
+            </div>
+            <div>
+              <Label htmlFor="caseLink" required>Case Link</Label>
+              <TextInput id="caseLink" value={data.caseLink} onChange={(v) => update("caseLink", v)} placeholder="https://..." />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="caseWriteup" required>Full Case Story</Label>
+              <Textarea id="caseWriteup" value={data.caseWriteup} onChange={(v) => update("caseWriteup", v)}
+                placeholder={`Please include:\n• Accident summary\n• Injuries & treatment\n• Challenges + resolution\n• Settlement amount and original offer\n• Client result / satisfaction\n• Tags`}
+                rows={12} />
+              <p className="text-xs text-slate-500 mt-1.5 flex items-start gap-1.5">
+                <I.Info size={14} className="flex-shrink-0 mt-0.5" />
+                One write-up covering the full story — accident, injuries, challenges, resolution, numbers, and outcome.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <Label required>Are there any BI / PD photos?</Label>
+              <YesNoToggle value={data.hasBiPd} onChange={(v) => update("hasBiPd", v)} />
+              {data.hasBiPd === "Yes" && (
+                <div className="mt-3" style={{ animation: "slideUp 0.2s ease-out" }}>
+                  <Label required>Upload BI / PD Photos</Label>
+                  <ImageUploader photos={data.biPdPhotos} onChange={(v) => update("biPdPhotos", v)} accent={BRAND.orange} minRequired={1} helpText="PNG, JPG, GIF, or HEIC • At least 1 BI / PD photo required" />
+                </div>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+      );
+    }
+
+    function CertificationCard({ checked, onChange, status }) {
+      return (
+        <SectionCard id="cert" icon={I.Shield} title="Final Certification" status={status} required accent={BRAND.orange}>
+          <div className={`rounded-xl border-2 p-5 transition-all ${checked ? "border-emerald-300 bg-emerald-50/50" : "border-dashed border-slate-300 bg-slate-50/50"}`}>
+            <Checkbox id="certify" checked={checked} onChange={onChange}
+              label="I certify that all submitted information is complete, truthful, and accurate."
+              description="By checking this box, you confirm you've reviewed every field and attest to its accuracy under firm policy." />
+          </div>
+        </SectionCard>
+      );
+    }
+
+    function SubmitBar({ canSubmit, missingItems, onSubmit, submitting, percentage }) {
+      return (
+        <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-sm border-t border-slate-200" style={{ boxShadow: "0 -4px 12px -6px rgba(0,0,0,0.08)" }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                {canSubmit ? (
+                  <>
+                    <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0"><I.CheckCircle size={20} className="text-emerald-600" /></div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">Ready to submit</div>
+                      <div className="text-xs text-slate-500">All required items are complete. Review once more before confirming.</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0"><I.Alert size={20} className="text-amber-600" /></div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-900">{missingItems.length} {missingItems.length === 1 ? "item" : "items"} remaining<span className="ml-2 text-xs font-medium text-slate-500">({percentage}%)</span></div>
+                      <div className="text-xs text-slate-500 truncate">{missingItems.slice(0, 3).join(" • ")}{missingItems.length > 3 && ` • +${missingItems.length - 3} more`}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button type="button" onClick={onSubmit} disabled={!canSubmit || submitting}
+                className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-all whitespace-nowrap ${canSubmit && !submitting ? "shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0" : "opacity-50 cursor-not-allowed"}`}
+                style={{ background: canSubmit ? `linear-gradient(135deg, ${BRAND.blue} 0%, #005f8f 100%)` : "#94a3b8" }}>
+                {submitting ? (<><I.Loader size={16} className="animate-spin" />Submitting...</>) : (<><I.Send size={16} />Submit Report</>)}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ConfirmModal({ open, onClose, onConfirm, summary }) {
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" style={{ animation: "fadeIn 0.15s ease-out" }} onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden" style={{ animation: "slideUp 0.2s ease-out" }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${BRAND.blue}15` }}>
+                  <I.Send size={20} style={{ color: BRAND.blue }} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Confirm Monthly Submission</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">Please review before finalizing — this will record your report.</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5 bg-slate-50/50">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">Attorney</div><div className="font-semibold text-slate-900">{summary.name || "—"}</div></div>
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">Role</div><div className="font-semibold text-slate-900">{summary.role || "—"}</div></div>
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">Period</div><div className="font-semibold text-slate-900">{summary.month ? `${summary.month} ${summary.year || ""}` : "—"}</div></div>
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">Total Fees</div><div className="font-semibold text-slate-900">{summary.attorneyFees ? formatCurrency(summary.attorneyFees) : "—"}</div></div>
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">Cases</div><div className="font-semibold text-slate-900">{summary.numCases || "—"}</div></div>
+                <div><div className="text-xs text-slate-500 uppercase tracking-wide">BI/PD Photos</div><div className="font-semibold text-slate-900">{summary.biPdCount}</div></div>
+              </div>
+            </div>
+            <div className="px-6 py-4 flex gap-3 justify-end border-t border-slate-100">
+              <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors">Review Again</button>
+              <button type="button" onClick={onConfirm} className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm hover:shadow-md transition-all"
+                style={{ background: `linear-gradient(135deg, ${BRAND.blue} 0%, #005f8f 100%)` }}>Confirm & Submit</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function SuccessScreen({ summary, onReset }) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-xl w-full p-8 text-center" style={{ animation: "slideUp 0.3s ease-out" }}>
+            <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-5" style={{ background: `linear-gradient(135deg, ${BRAND.blue}20, ${BRAND.orange}20)` }}>
+              <I.CheckCircle size={40} stroke={2.5} style={{ color: BRAND.blue }} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">Submission complete</h2>
+            <p className="text-sm text-slate-600 mt-2">Your monthly report has been recorded.</p>
+            <div className="mt-6 rounded-xl bg-slate-50 border border-slate-200 p-5 text-left">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Receipt</div>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between"><dt className="text-slate-500">Confirmation ID</dt><dd className="font-mono font-semibold text-slate-900">{summary.confirmationId}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Attorney</dt><dd className="font-semibold text-slate-900">{summary.name}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Role</dt><dd className="font-semibold text-slate-900">{summary.role}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Reporting Period</dt><dd className="font-semibold text-slate-900">{summary.month} {summary.year}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Submitted</dt><dd className="font-semibold text-slate-900">{new Date().toLocaleString("en-US")}</dd></div>
+              </dl>
+            </div>
+            <button type="button" onClick={onReset} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm hover:shadow-md transition-all"
+              style={{ background: `linear-gradient(135deg, ${BRAND.blue} 0%, #005f8f 100%)` }}>Start a New Submission</button>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [details, setDetails] = useState({ month: "", year: String(new Date().getFullYear()), role: "", name: "" });
+      const [metrics, setMetrics] = useState({ attorneyFees: "", numCases: "", avgAttorneyFees: "", avgAttorneyFeesEdited: false, numDemandsOut: "", demandsRemaining: "", bonusEarned: "" });
+      const [bonus, setBonus] = useState({ spreadsheetScreenshots: [], metBonus: "", metBonusExplanation: "", demandsStatus: "", demandsNotMetExplanation: "", exceptionReason: "", exceptionReasonOther: "", exceptionNote: "", noSol: "", solException: "", solExplanation: "", cmReviewMet: "", cmReviewExplanation: "", caseReviewStatement: "" });
+      const [com, setCom] = useState({ clientName: "", caseLink: "", caseWriteup: "", photos: [], hasBiPd: "", biPdPhotos: [] });
+      const [certified, setCertified] = useState(false);
+      const [confirmOpen, setConfirmOpen] = useState(false);
+      const [submitting, setSubmitting] = useState(false);
+      const [submitted, setSubmitted] = useState(false);
+      const [confirmationId, setConfirmationId] = useState("");
+
+      const updateDetails = (k, v) => setDetails((p) => ({ ...p, [k]: v }));
+      const updateMetrics = (k, v) => setMetrics((p) => ({ ...p, [k]: v }));
+      const updateBonus = (k, v) => setBonus((p) => ({ ...p, [k]: v }));
+      const updateCom = (k, v) => setCom((p) => ({ ...p, [k]: v }));
+
+      const isLitigation = details.role === "Litigation Attorney";
+      const isVS = details.role === "VS";
+
+      const detailsComplete = !!details.month && !!details.year && !!details.role && !!details.name.trim();
+      const metricsComplete = isLitigation
+        ? metrics.attorneyFees !== "" && metrics.numCases !== "" && metrics.bonusEarned !== "" && bonus.spreadsheetScreenshots.length >= 1
+        : metrics.attorneyFees !== "" && metrics.numCases !== "" && metrics.avgAttorneyFees !== "" && metrics.numDemandsOut !== "" && metrics.demandsRemaining !== "" && metrics.bonusEarned !== "";
+
+      const bonusComplete =
+        bonus.spreadsheetScreenshots.length >= 1 &&
+        bonus.metBonus !== "" &&
+        (bonus.metBonus !== "No" || bonus.metBonusExplanation.trim() !== "") &&
+        bonus.demandsStatus !== "" &&
+        (bonus.demandsStatus !== "Not Met" || bonus.demandsNotMetExplanation.trim() !== "") &&
+        (bonus.demandsStatus !== "Demands Met (With Exception)" ||
+          (bonus.exceptionReason !== "" &&
+            (bonus.exceptionReason !== "Other" || bonus.exceptionReasonOther.trim() !== "") &&
+            bonus.exceptionNote.trim() !== "")) &&
+        bonus.noSol !== "" &&
+        (bonus.noSol !== "Yes" || (bonus.solException !== "" && bonus.solExplanation.trim() !== "")) &&
+        (isVS ||
+          (bonus.cmReviewMet !== "" &&
+            (bonus.cmReviewMet !== "No" || bonus.cmReviewExplanation.trim() !== "") &&
+            bonus.caseReviewStatement.trim() !== ""));
+
+      const comComplete = !!com.clientName.trim() && !!com.caseLink.trim() && !!com.caseWriteup.trim() && com.hasBiPd !== "" && (com.hasBiPd !== "Yes" || com.biPdPhotos.length >= 1);
+      const certificationComplete = certified;
+
+      const sections = [
+        { key: "details", complete: detailsComplete, label: "Submission details" },
+        { key: "metrics", complete: metricsComplete, label: "Monthly metrics" },
+        ...(isLitigation ? [] : [{ key: "bonus", complete: bonusComplete, label: "Monthly requirements" }]),
+        { key: "com", complete: comComplete, label: "Case of the Month" },
+        { key: "certification", complete: certificationComplete, label: "Final certification" },
+      ];
+      const completedSections = sections.filter((s) => s.complete).length;
+      const totalSections = sections.length;
+      const percentage = Math.round((completedSections / totalSections) * 100);
+
+      const missingItems = useMemo(() => {
+        const items = [];
+        if (!detailsComplete) items.push("Submission details");
+        if (!metricsComplete) items.push("Metrics fields");
+        if (!isLitigation) {
+          if (bonus.spreadsheetScreenshots.length < 1) items.push("Spreadsheet screenshot");
+          if (!bonusComplete) items.push("Monthly requirements");
+        }
+        if (!comComplete) items.push("Case of the Month");
+        if (!certificationComplete) items.push("Certification");
+        return [...new Set(items)];
+      }, [detailsComplete, metricsComplete, isLitigation, bonus.spreadsheetScreenshots.length, bonusComplete, comComplete, certificationComplete]);
+
+      const canSubmit = missingItems.length === 0;
+      const handleSubmit = () => { if (canSubmit) setConfirmOpen(true); };
+      const handleConfirm = () => {
+        setConfirmOpen(false);
+        setSubmitting(true);
+        setTimeout(() => {
+          setConfirmationId("ATT-" + Math.random().toString(36).substring(2, 7).toUpperCase() + "-" + Date.now().toString().slice(-4));
+          setSubmitting(false);
+          setSubmitted(true);
+        }, 900);
+      };
+      const resetAll = () => {
+        [...com.photos, ...com.biPdPhotos, ...bonus.spreadsheetScreenshots].forEach((p) => p.url && URL.revokeObjectURL(p.url));
+        setDetails({ month: "", year: String(new Date().getFullYear()), role: "", name: "" });
+        setMetrics({ attorneyFees: "", numCases: "", avgAttorneyFees: "", avgAttorneyFeesEdited: false, numDemandsOut: "", demandsRemaining: "", bonusEarned: "" });
+        setBonus({ spreadsheetScreenshots: [], metBonus: "", metBonusExplanation: "", demandsStatus: "", demandsNotMetExplanation: "", exceptionReason: "", exceptionReasonOther: "", exceptionNote: "", noSol: "", solException: "", solExplanation: "", cmReviewMet: "", cmReviewExplanation: "", caseReviewStatement: "" });
+        setCom({ clientName: "", caseLink: "", caseWriteup: "", photos: [], hasBiPd: "", biPdPhotos: [] });
+        setCertified(false);
+        setSubmitted(false);
+        setConfirmationId("");
+      };
+
+      if (submitted) {
+        return <SuccessScreen summary={{ confirmationId, name: details.name, role: details.role, month: details.month, year: details.year }} onReset={resetAll} />;
+      }
+
+      return (
+        <div className="min-h-screen bg-slate-50">
+          <Header completedSections={completedSections} totalSections={totalSections} percentage={percentage} sections={sections} />
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="space-y-6">
+              <SubmissionDetailsCard data={details} update={updateDetails} status={detailsComplete ? "complete" : "incomplete"} />
+              <MetricsCard
+                data={metrics}
+                update={updateMetrics}
+                status={metricsComplete ? "complete" : "incomplete"}
+                isLitigation={isLitigation}
+                spreadsheetScreenshots={bonus.spreadsheetScreenshots}
+                onSpreadsheetChange={(v) => updateBonus("spreadsheetScreenshots", v)}
+              />
+              {!isLitigation && (
+                <BonusRequirementsCard data={bonus} update={updateBonus} status={bonusComplete ? "complete" : "incomplete"} isVS={isVS} />
+              )}
+              <CaseOfMonthCard data={com} update={updateCom} status={comComplete ? "complete" : "incomplete"} />
+              <CertificationCard checked={certified} onChange={setCertified} status={certificationComplete ? "complete" : "incomplete"} />
+            </div>
+          </main>
+          <SubmitBar canSubmit={canSubmit} missingItems={missingItems} onSubmit={handleSubmit} submitting={submitting} percentage={percentage} />
+          <ConfirmModal open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleConfirm}
+            summary={{ name: details.name, role: details.role, month: details.month, year: details.year, attorneyFees: metrics.attorneyFees, numCases: metrics.numCases, biPdCount: com.biPdPhotos.length }} />
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
